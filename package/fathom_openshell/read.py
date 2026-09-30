@@ -29,7 +29,7 @@ from fathom_openshell.adapters import ocsf as O
 
 
 DEFAULT_ENDPOINT = "https://read.embeddedriskanalytics.com/v1/read"
-USER_AGENT = "fathom-openshell/0.2.0"
+USER_AGENT = "fathom-openshell/0.2.1"
 
 
 def load_tool_map(arg=None):

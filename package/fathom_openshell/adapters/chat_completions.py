@@ -115,6 +115,17 @@ def env_writes() -> List[Tuple[Pattern[str], str]]:
     return [(re.compile(_js_groups(w["regex"])), w.get("kind", "fact")) for w in json.loads(raw)]
 
 
+# Placeholder words are not values, in writes and in claims alike: a line that gives a key as "none", "not stated",
+# "not reported", "n/a", ... says the value is absent and asserts nothing. One list for both.
+PLACEHOLDER_WORDS = ("none", "not", "n/a", "na", "unknown", "null", "unspecified", "missing")
+# for a FATHOM_WRITES value group: (?<value>...) preceded by this refuses a placeholder word
+PLACEHOLDER_LOOKAHEAD = r"(?!(?i:" + "|".join(re.escape(w) for w in PLACEHOLDER_WORDS) + r")(?![A-Za-z0-9._-]))"
+
+
+def is_placeholder(value: Optional[str]) -> bool:
+    return value is not None and value.strip().lower() in PLACEHOLDER_WORDS
+
+
 class Claims:
     """Finds the named facts a piece of assistant text states (prime-agent's resolver, facts only)."""
 
@@ -132,16 +143,20 @@ class Claims:
         # records a correction lists the figure as first stated, then the revised one, and a reply restating the
         # note's lines must not read as asserting the corrected figure)
         last: Dict[str, str] = {}
+        blank = set()          # keys whose last statement is a placeholder: absent, so no claim and no bare reference
         for m in self.fact_re.finditer(text):
             key, val = m.group(1), m.group(m.lastindex)
             if self.key_re.fullmatch(val):
                 continue
             last.pop(key, None)
+            if is_placeholder(val):
+                blank.add(key)
+                continue
+            blank.discard(key)
             last[key] = val
-        seen = set(last.items())
         for key, val in last.items():
             out.append(Op("answer", self.kind, key, value=val, refs=[(self.kind, key)], source=source))
-        named = {k for k, _ in seen}
+        named = set(last) | blank
         for m in self.key_re.finditer(text):
             if m.group(0) not in named:
                 named.add(m.group(0))
@@ -306,6 +321,9 @@ def _commit_reads(arguments: Any) -> Optional[str]:
 # A final message that reports a failure beside its facts (a non-2xx status on its own or after "HTTP", a non-zero exit,
 # a helper's failure line) is a failure report; its facts are not claims of committed state. FATHOM_FAILURE_REPORT
 # overrides it (matched case-insensitively, ^ and $ per line).
+# a line that is only a file path (a write's block starts with it), e.g. runs/r/notes/agent-2/max_agents.md
+PATH_LINE = re.compile(r"^\s*[\w.-]*(?:/[\w.-]+)+\.\w{1,6}\s*:?\s*$")
+
 FAILURE_REPORT = (r"HTTP [45]\d\d\b|^\s*[45]\d\d\s*$|exit(?:ed with)? code [1-9]|\bfailed\b|\bdenied\b|\bnot sent\b")
 
 
@@ -402,11 +420,33 @@ class _Walker:
         said = " ".join(text.split())
         if claims and not msg.get("tool_calls") and said in self.call_texts:
             claims = False    # a copy of a message whose tool call had not arrived yet (a cut stream): same message
-        if claims and not msg.get("tool_calls") and self.failure_re.search(text):
-            claims = False    # a failure report: facts printed beside a failed status are not claims of committed state
         if claims and not msg.get("tool_calls"):
+            text = self._claimable(text)      # a failure report's facts are not claims of committed state
+        if claims and not msg.get("tool_calls") and text:
             for op in self.claims.ops(text, source):
                 self.emit(ts, op)
+
+    def _claimable(self, text: str) -> str:
+        """The part of a final message whose facts are claims. No failure statement: all of it. A failure statement in
+        a message with no path lines: none of it (the failure governs the whole message). A message laid out by path
+        lines (path, status, facts, per write): a failure statement governs only the lines after it in its own path's
+        block, so a fact line with no failing status above it in its block is a claim."""
+        if not self.failure_re.search(text):
+            return text
+        lines = text.splitlines()
+        if not any(PATH_LINE.match(ln) for ln in lines):
+            return ""
+        keep, failed = [], False
+        for ln in lines:
+            if PATH_LINE.match(ln):
+                failed = False
+                continue
+            if self.failure_re.search(ln):
+                failed = True
+                continue
+            if not failed:
+                keep.append(ln)
+        return "\n".join(keep)
 
     def history(self, ts: int, messages: Iterable[Dict[str, Any]]):
         for m in messages:
