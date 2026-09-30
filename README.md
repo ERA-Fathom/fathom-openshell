@@ -3,11 +3,11 @@
 Capture what an agent running in an [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandbox sends to its
 model and to the services it writes to, next to OpenShell's own delivery record, without changing the agent.
 
-**Today the read is unjoined.** `fathom_openshell.read` sends the model-traffic ops to the hosted read and returns its
-verdict on them alone: a write the agent believed it made is read as made, even if OpenShell denied its delivery. The
-joined read, with the sandbox's delivery record lined up against the model traffic so that denied or undelivered writes
-count as writes that did not land, arrives with the hosted service's 0.6.0. The delivery-record recorder and adapter are
-already in this package, so captures made now can be joined later.
+**The joined read is live.** `fathom_openshell.read --join` sends the model traffic together with the sandbox's delivery
+record, and the hosted read (0.6.0) lines them up, so a write the agent believed it made but whose delivery OpenShell
+denied, or never saw, counts as a write that did not land. Without `--join` the read covers the model traffic alone.
+A sandbox whose delivery record is incomplete (a dropped watch stream, a middleware that failed open) is refused rather
+than read on partial evidence.
 
 ## What it captures
 
@@ -49,6 +49,18 @@ python -m fathom_openshell.read captures/<sandbox_id>
 
 `fathom_openshell.read` prints the op counts for both files and sends the model-traffic ops to the hosted read
 (`FATHOM_API_KEY`, or the demo key with its daily limit; get a free key with `fathom key you@example.com`).
+
+The joined read, for one sandbox or several (a multi-agent run is read as one merged history):
+
+```
+python -m fathom_openshell.read captures/<sandbox_id> [captures/<other_sandbox_id> ...] --join \
+    --tool-map '{"exec_command": "PUT api.github.com:443/repos/"}'
+```
+
+The tool map says where each tool writes (`[METHOD ]host:port[/path]`), so a tool's result can be matched to its
+delivery; `FATHOM_TOOL_MAP` works too. The response adds a join block after the findings: the record's status, the
+per-call delivery status (delivered, denied, absent, or no_map for a tool with no destination), and the steps read as
+writes that did not land. It exits 3 when a record is incomplete.
 
 ## What to expect from OpenShell 0.1.2
 
