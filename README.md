@@ -3,6 +3,12 @@
 Capture what an agent running in an [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandbox sends to its
 model and to the services it writes to, next to OpenShell's own delivery record, without changing the agent.
 
+**Today the read is unjoined.** `fathom_openshell.read` sends the model-traffic ops to the hosted read and returns its
+verdict on them alone: a write the agent believed it made is read as made, even if OpenShell denied its delivery. The
+joined read, with the sandbox's delivery record lined up against the model traffic so that denied or undelivered writes
+count as writes that did not land, arrives with the hosted service's 0.6.0. The delivery-record recorder and adapter are
+already in this package, so captures made now can be joined later.
+
 ## What it captures
 
 - **Model traffic and writes, through the supervisor middleware hook.** `fathom_openshell.middleware` is a
