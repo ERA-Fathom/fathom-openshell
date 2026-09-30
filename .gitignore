@@ -1,0 +1,31 @@
+# private: never part of the public tree
+internal/
+RELAY.md
+RELAY.md.*
+HANDOFF_*.md
+RESULT_*.md
+*.first_version
+package/fathom_openshell/join.py
+# captures, keys, logs, backups, maps (also guarded if they ever appear outside internal/)
+captures/
+logs/
+_backups/
+*.bak
+*.bak_*
+*.db
+*.db-*
+*.jsonl
+env.sh
+*.env
+.env*
+*.key
+*.pem
+# build and editor noise
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.DS_Store
+.idea/

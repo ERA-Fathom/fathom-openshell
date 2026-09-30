@@ -1,0 +1,8 @@
+Generated from NVIDIA/OpenShell proto/supervisor_middleware.proto and proto/extension.proto at commit
+cfcc3733b (main, 2026-09-29). supervisor_middleware.proto is byte-identical at tag v0.1.2 (6648bd0c), the
+release this project runs (Homebrew openshell 0.1.2). Codegen: grpcio-tools 1.84.0 (libprotoc 35.1),
+gencode Protobuf Python Version 7.35.1; runtime tested with grpcio 1.84.0, protobuf 7.36.2.
+Imports rewritten to package-relative (from . import ...). Apache-2.0 (NVIDIA).
+
+The generated files in this directory are covered by the Apache License 2.0 (LICENSE-APACHE-2.0, copied from
+NVIDIA/OpenShell at cfcc3733b); the rest of this project is MIT.
