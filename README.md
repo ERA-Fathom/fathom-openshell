@@ -92,3 +92,8 @@ Observed with the Homebrew build and the Docker driver:
   `VENDORED_FROM.txt`)
 
 MIT license, except `_proto/` (Apache-2.0).
+
+
+---
+
+If the read caught something in your own run, a star on this repository helps other teams find it.
