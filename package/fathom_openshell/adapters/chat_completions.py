@@ -242,6 +242,8 @@ def _msg_sig(msg: Dict[str, Any]) -> str:
 
 def _response_message(line: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     body = line.get("body") or {}
+    if not isinstance(body, dict):          # a JSON list or scalar (e.g. a directory listing) is no chat response
+        return None
     if "message" in body and "choices" not in body:        # reassembled SSE
         return body["message"]
     choices = body.get("choices") or []
@@ -332,6 +334,9 @@ def _call_texts(captured) -> set:
     from fathom_openshell.adapters import responses as RSP
     out = set()
     for req, resp in captured:
+        path = (req.get("path") or "").rstrip("/")
+        if not (path.endswith("/responses") or path.endswith("/chat/completions")):
+            continue                     # only model traffic carries assistant messages (a GitHub listing is a JSON list)
         msgs = []
         body = req.get("body") if req.get("kind") == "request" else None
         if isinstance(body, dict):
