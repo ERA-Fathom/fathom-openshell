@@ -58,9 +58,14 @@ python -m fathom_openshell.read captures/<sandbox_id> [captures/<other_sandbox_i
 ```
 
 The tool map says where each tool writes (`[METHOD ]host:port[/path]`), so a tool's result can be matched to its
-delivery; `FATHOM_TOOL_MAP` works too. The response adds a join block after the findings: the record's status, the
-per-call delivery status (delivered, denied, absent, or no_map for a tool with no destination), and the steps read as
-writes that did not land. It exits 3 when a record is incomplete.
+delivery; `FATHOM_TOOL_MAP` works too. Each call's arguments go with the request, so when an agent runs several writes
+to one destination at once, each call is matched to the deliveries for the path it names (hosted read 0.6.1). The
+response adds a join block after the findings: the record's status, the per-call delivery status (delivered, denied,
+absent, or no_map for a tool with no destination), and the steps read as writes that did not land. It exits 3 when a
+record is incomplete.
+
+"Delivered" is OpenShell's decision to let a request through; whether the destination accepted the write (a 201, or a
+409 refusal) comes from the captured response, not from the join, so delivered is not landed.
 
 ## What to expect from OpenShell 0.1.2
 
