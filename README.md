@@ -1,9 +1,11 @@
-# fathom-openshell
+# right-rudder-openshell
+
+> Fathom is now Right Rudder, by Embedded Risk Analytics. This package was fathom-openshell; the module is now `right_rudder_openshell` and the middleware registers as `right-rudder-capture`.
 
 Capture what an agent running in an [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandbox sends to its
 model and to the services it writes to, next to OpenShell's own delivery record, without changing the agent.
 
-**The joined read is live.** `fathom_openshell.read --join` sends the model traffic together with the sandbox's delivery
+**The joined read is live.** `right_rudder_openshell.read --join` sends the model traffic together with the sandbox's delivery
 record, and the hosted read (0.6.0) lines them up, so a write the agent believed it made but whose delivery OpenShell
 denied, or never saw, counts as a write that did not land. Without `--join` the read covers the model traffic alone.
 A sandbox whose delivery record is incomplete (a dropped watch stream, a middleware that failed open) is refused rather
@@ -11,20 +13,20 @@ than read on partial evidence.
 
 ## What it captures
 
-- **Model traffic and writes, through the supervisor middleware hook.** `fathom_openshell.middleware` is a
+- **Model traffic and writes, through the supervisor middleware hook.** `right_rudder_openshell.middleware` is a
   supervisor middleware (RFC 0009) that allows every request unchanged and writes one JSON line per request and
   one per response to `<capture-dir>/<sandbox_id>/http_capture.jsonl`: method, host, path, timestamps, the body
   (parsed when it is JSON; SSE streams reassembled into one message), and a stub line with a reason whenever
   OpenShell offers headers only or a body ends early. Register it with `on_error: fail_open`, bound to the
   endpoints you want to see.
-- **The delivery record, through `WatchSandbox`.** `fathom_openshell.stream` follows one sandbox's watch stream
+- **The delivery record, through `WatchSandbox`.** `right_rudder_openshell.stream` follows one sandbox's watch stream
   and writes every log line, OCSF included, to `<capture-dir>/<sandbox>/ocsf_stream.jsonl`, ending with a status
   line that says whether the record is complete (stream warnings, out-of-range cursors and unrecovered
   disconnects mark it incomplete).
 
 ```
-python -m fathom_openshell.middleware --port 50051 --capture-dir captures
-python -m fathom_openshell.stream --sandbox my-sandbox --capture-dir captures --until-deleted
+python -m right_rudder_openshell.middleware --port 50051 --capture-dir captures
+python -m right_rudder_openshell.stream --sandbox my-sandbox --capture-dir captures --until-deleted
 ```
 
 ## What the adapters emit
@@ -37,28 +39,28 @@ python -m fathom_openshell.stream --sandbox my-sandbox --capture-dir captures --
 - `adapters.ocsf` turns the watch stream into delivery ops (allowed, denied, refused, per destination) and marks
   the record incomplete when OpenShell reports a middleware that failed open.
 
-Which keys count as facts and which lines in a written file record them is configuration (`FATHOM_FACTS`,
-`FATHOM_KIND`, `FATHOM_WRITES`, `FATHOM_COMMIT_CALLS`), not code.
+Which keys count as facts and which lines in a written file record them is configuration (`RIGHT_RUDDER_FACTS`,
+`RIGHT_RUDDER_KIND`, `RIGHT_RUDDER_WRITES`, `RIGHT_RUDDER_COMMIT_CALLS`), not code.
 
 ## Sending ops to the hosted read
 
 ```
-pip install fathom-read
-python -m fathom_openshell.read captures/<sandbox_id>
+pip install right-rudder
+python -m right_rudder_openshell.read captures/<sandbox_id>
 ```
 
-`fathom_openshell.read` prints the op counts for both files and sends the model-traffic ops to the hosted read
-(`FATHOM_API_KEY`, or the demo key with its daily limit; get a free key with `fathom key you@example.com`).
+`right_rudder_openshell.read` prints the op counts for both files and sends the model-traffic ops to the hosted read
+(`RIGHT_RUDDER_API_KEY`, or the demo key with its daily limit; get a free key with `right-rudder key you@example.com`).
 
 The joined read, for one sandbox or several (a multi-agent run is read as one merged history):
 
 ```
-python -m fathom_openshell.read captures/<sandbox_id> [captures/<other_sandbox_id> ...] --join \
+python -m right_rudder_openshell.read captures/<sandbox_id> [captures/<other_sandbox_id> ...] --join \
     --tool-map '{"exec_command": "PUT api.github.com:443/repos/"}'
 ```
 
 The tool map says where each tool writes (`[METHOD ]host:port[/path]`), so a tool's result can be matched to its
-delivery; `FATHOM_TOOL_MAP` works too. Each call's arguments go with the request, so when an agent runs several writes
+delivery; `RIGHT_RUDDER_TOOL_MAP` works too. Each call's arguments go with the request, so when an agent runs several writes
 to one destination at once, each call is matched to the deliveries for the path it names (hosted read 0.6.1). The
 response adds a join block after the findings: the record's status, the per-call delivery status (delivered, denied,
 absent, or no_map for a tool with no destination), and the steps read as writes that did not land. It exits 3 when a
@@ -91,9 +93,9 @@ Observed with the Homebrew build and the Docker driver:
 
 ## Layout
 
-- `package/fathom_openshell/middleware.py`, `stream.py`, `read.py`
-- `package/fathom_openshell/adapters/` (`chat_completions.py`, `responses.py`, `ocsf.py`)
-- `package/fathom_openshell/_proto/`: Python generated from OpenShell's protos (Apache-2.0; see
+- `package/right_rudder_openshell/middleware.py`, `stream.py`, `read.py`
+- `package/right_rudder_openshell/adapters/` (`chat_completions.py`, `responses.py`, `ocsf.py`)
+- `package/right_rudder_openshell/_proto/`: Python generated from OpenShell's protos (Apache-2.0; see
   `VENDORED_FROM.txt`)
 
 MIT license, except `_proto/` (Apache-2.0).

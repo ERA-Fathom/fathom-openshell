@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Read one sandbox's captures: both adapters, op counts, and the hosted read over the chat-completions ops.
 
-    python -m fathom_openshell.read <captures/sandbox_id>
-    python -m fathom_openshell.read --http <http_capture.jsonl> [--ocsf <ocsf_stream.jsonl>] [--no-read]
-    python -m fathom_openshell.read <captures/sandbox_id> [<captures/other_sandbox_id> ...] --join --tool-map '{"tool": "host:port"}'
+    python -m right_rudder_openshell.read <captures/sandbox_id>
+    python -m right_rudder_openshell.read --http <http_capture.jsonl> [--ocsf <ocsf_stream.jsonl>] [--no-read]
+    python -m right_rudder_openshell.read <captures/sandbox_id> [<captures/other_sandbox_id> ...] --join --tool-map '{"tool": "host:port"}'
 
-The model-traffic ops (gaps removed) go to the hosted read (fathom_read.client.read: FATHOM_API_KEY or the demo
-key, FATHOM_ENDPOINT or https://read.embeddedriskanalytics.com/v1/read). The delivery-record ops are printed only.
-Claim and write patterns come from FATHOM_FACTS, FATHOM_KIND and FATHOM_WRITES, or the matching flags.
+The model-traffic ops (gaps removed) go to the hosted read (right_rudder.client.read: RIGHT_RUDDER_API_KEY or the demo
+key, RIGHT_RUDDER_ENDPOINT or https://read.embeddedriskanalytics.com/v1/read). The delivery-record ops are printed only.
+Claim and write patterns come from RIGHT_RUDDER_FACTS, RIGHT_RUDDER_KIND and RIGHT_RUDDER_WRITES, or the matching flags.
 
---join sends the joined read (fathom-read 0.6.0): the model-traffic ops of one or more sandboxes, merged in time order,
+--join sends the joined read (the hosted read 0.6.0): the model-traffic ops of one or more sandboxes, merged in time order,
 together with each sandbox's delivery record (the WatchSandbox stream's delivery events, its provider request windows and
-its tool-call timing) and the tool map (FATHOM_TOOL_MAP or --tool-map: where each tool writes, "[METHOD ]host:port[/path]").
+its tool-call timing) and the tool map (RIGHT_RUDDER_TOOL_MAP or --tool-map: where each tool writes, "[METHOD ]host:port[/path]").
 The service lines the record up with the ops and reads a write whose delivery was denied or never happened as a write that
 did not land; the response's join block is printed after the findings. A sandbox whose record is incomplete is refused
 (HTTP 422, exit 3). The package only gathers and sends the data; the alignment runs in the service.
@@ -24,17 +24,17 @@ import sys
 import urllib.error
 import urllib.request
 
-from fathom_openshell.adapters import chat_completions as C
-from fathom_openshell.adapters import ocsf as O
+from right_rudder_openshell.adapters import chat_completions as C
+from right_rudder_openshell.adapters import ocsf as O
 
 
 DEFAULT_ENDPOINT = "https://read.embeddedriskanalytics.com/v1/read"
-USER_AGENT = "fathom-openshell/0.2.1"
+USER_AGENT = "right-rudder-openshell/0.2.1"
 
 
 def load_tool_map(arg=None):
-    """--tool-map as JSON text or a path to a JSON file; else FATHOM_TOOL_MAP (same forms); else {}."""
-    raw = arg if arg is not None else os.environ.get("FATHOM_TOOL_MAP")
+    """--tool-map as JSON text or a path to a JSON file; else RIGHT_RUDDER_TOOL_MAP (same forms); else {}."""
+    raw = arg if arg is not None else (os.environ.get("RIGHT_RUDDER_TOOL_MAP") or os.environ.get("FATHOM_TOOL_MAP"))
     if not raw:
         return {}
     if os.path.exists(raw):
@@ -100,9 +100,9 @@ def join_request(dirs, tool_map, facts=None, kind=None, names=None):
 
 
 def post_read(body, endpoint=None, key=None, timeout=60.0):
-    """POST a request body to the hosted read (FATHOM_ENDPOINT, FATHOM_API_KEY or the demo key). (status, payload)."""
-    endpoint = endpoint or os.environ.get("FATHOM_ENDPOINT") or DEFAULT_ENDPOINT
-    key = key or os.environ.get("FATHOM_API_KEY") or "demo"
+    """POST a request body to the hosted read (RIGHT_RUDDER_ENDPOINT, RIGHT_RUDDER_API_KEY or the demo key). (status, payload)."""
+    endpoint = endpoint or (os.environ.get("RIGHT_RUDDER_ENDPOINT") or os.environ.get("FATHOM_ENDPOINT")) or DEFAULT_ENDPOINT
+    key = key or (os.environ.get("RIGHT_RUDDER_API_KEY") or os.environ.get("FATHOM_API_KEY")) or "demo"
     req = urllib.request.Request(endpoint, data=json.dumps(body).encode(), method="POST", headers={
         "Content-Type": "application/json", "Authorization": "Bearer " + key, "User-Agent": USER_AGENT})
     try:
@@ -156,16 +156,16 @@ def main(argv=None):
     ap.add_argument("dir", nargs="*", help="captures/<sandbox_id> directories (one, or several with --join)")
     ap.add_argument("--http", help="http_capture.jsonl (default <dir>/http_capture.jsonl)")
     ap.add_argument("--ocsf", help="ocsf_stream.jsonl (default <dir>/ocsf_stream.jsonl)")
-    ap.add_argument("--facts", help="claim key regex (default FATHOM_FACTS)")
-    ap.add_argument("--kind", help="claim kind (default FATHOM_KIND or fact)")
-    ap.add_argument("--writes", help="JSON list of {regex, kind} (default FATHOM_WRITES)")
+    ap.add_argument("--facts", help="claim key regex (default RIGHT_RUDDER_FACTS)")
+    ap.add_argument("--kind", help="claim kind (default RIGHT_RUDDER_KIND or fact)")
+    ap.add_argument("--writes", help="JSON list of {regex, kind} (default RIGHT_RUDDER_WRITES)")
     ap.add_argument("--no-read", action="store_true", help="print the ops without calling the hosted read")
     ap.add_argument("--ops", action="store_true", help="print every op")
-    ap.add_argument("--join", action="store_true", help="the joined read: send the delivery record with the ops (fathom-read 0.6.0)")
-    ap.add_argument("--tool-map", help='with --join: {"tool": "[METHOD ]host:port[/path]"} as JSON or a file (default FATHOM_TOOL_MAP)')
+    ap.add_argument("--join", action="store_true", help="the joined read: send the delivery record with the ops (the hosted read 0.6.0)")
+    ap.add_argument("--tool-map", help='with --join: {"tool": "[METHOD ]host:port[/path]"} as JSON or a file (default RIGHT_RUDDER_TOOL_MAP)')
     a = ap.parse_args(argv)
     if a.writes:
-        os.environ["FATHOM_WRITES"] = a.writes
+        os.environ["RIGHT_RUDDER_WRITES"] = a.writes
     if a.join:
         return _joined(a)
     d0 = a.dir[0] if a.dir else None
@@ -185,7 +185,7 @@ def main(argv=None):
         for g in gaps:
             print(f"  gap: {g.key} {g.value}")
         if not a.no_read:
-            from fathom_read.client import read, ReadError
+            from right_rudder.client import read, ReadError
             sent = C.read_ops(ops)
             if gaps:
                 print(f"  NOTE: the capture has {len(gaps)} gap(s); the read below covers the captured traffic only")

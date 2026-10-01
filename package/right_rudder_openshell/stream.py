@@ -11,7 +11,7 @@ cursor.
 Starting before the sandbox exists: until the gateway knows the name, the watch is retried
 (NOT_FOUND) every --poll seconds, for at most --wait-create seconds.
 
-    python -m fathom_openshell.stream --sandbox my-sandbox --capture-dir captures --until-deleted
+    python -m right_rudder_openshell.stream --sandbox my-sandbox --capture-dir captures --until-deleted
 """
 import argparse
 import json

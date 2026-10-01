@@ -1,4 +1,4 @@
-"""A fathom-capture http_capture.jsonl (OpenAI-style chat completions) as a fathom op stream.
+"""A right-rudder-capture http_capture.jsonl (OpenAI-style chat completions) as a Right Rudder op stream.
 
 load_capture(path) walks the request/response pairs in time order and emits ops only for what is new in each
 pair; a request's messages array is history the adapter has already seen, except where a capture stub left a
@@ -8,15 +8,15 @@ Mapping:
   * an assistant tool_call              -> add call <tool name>, value = the arguments as canonical JSON
                                            (a call repeated with identical arguments is an entity the
                                            collection already holds); ok comes from the paired result
-  * a tool the fathom_read default map knows (write_file, set_value, ...)
+  * a tool the right_rudder default map knows (write_file, set_value, ...)
                                         -> also that tool's own op (set/remove/rename/add/commit)
   * a tool-role message                 -> pairs to its call by tool_call_id and supplies the result and ok
                                            (ok is false when the result reads as an error)
-  * FATHOM_WRITES matches in a tool result
+  * RIGHT_RUDDER_WRITES matches in a tool result
                                         -> set <kind> <key> = <value>   (not in a call's arguments: an argument is
                                            the agent's intent, and the result or the landed write is the commit)
-  * FATHOM_FACTS matches in assistant text
-                                        -> answer <FATHOM_KIND> <key>, with the stated value when one is given; only
+  * RIGHT_RUDDER_FACTS matches in assistant text
+                                        -> answer <RIGHT_RUDDER_KIND> <key>, with the stated value when one is given; only
                                            from a message that carries no tool call (text beside a call states what
                                            the agent is about to do, as the call's arguments do)
   * a stub line in the capture          -> gap capture <request_id>, value = the stub reason (not a read op;
@@ -26,9 +26,9 @@ Mapping:
   * a GitHub contents PUT (e.g. the multi-agent notepad example's shared notes, PUT /repos/<o>/<r>/contents/<path>)
                                         -> set note <path> = the decoded content, ok when GitHub answered 200/201
                                            (a 409 or any other status is a write that did not land). For a note file
-                                           (path matching FATHOM_NOTE_PATHS, default "(^|/)notes/"), FATHOM_WRITES
+                                           (path matching RIGHT_RUDDER_NOTE_PATHS, default "(^|/)notes/"), RIGHT_RUDDER_WRITES
                                            matches inside become set ops with the same ok; for any other file (the
-                                           synthesis summary) the FATHOM_FACTS statements inside become answer ops:
+                                           synthesis summary) the RIGHT_RUDDER_FACTS statements inside become answer ops:
                                            a report makes claims about committed state, it does not commit facts
   * a contents PUT whose response never came back (a connection closed in flight) is a gap, unless a later 200 GET of
     the same path in the same capture returns exactly the content sent: then the write landed, at that GET
@@ -36,24 +36,24 @@ Mapping:
   * one statement counts once: an assistant final message whose text (whitespace-
     normalized) was also PUT as a file contributes no claims; the file does. A non-note file's set note op carries
     value None (the landing is recorded; its content is carried by the answer ops)
-  * FATHOM_COMMIT_CALLS (optional regex over a call's name + arguments): a committing call, e.g. a shell command
-    running a note-writing helper. When its result does not match FATHOM_COMMIT_OK (default "HTTP (200|201)\b"), the
-    FATHOM_WRITES matches in its arguments become set ops with ok=false at the result: the write the agent attempted
+  * RIGHT_RUDDER_COMMIT_CALLS (optional regex over a call's name + arguments): a committing call, e.g. a shell command
+    running a note-writing helper. When its result does not match RIGHT_RUDDER_COMMIT_OK (default "HTTP (200|201)\b"), the
+    RIGHT_RUDDER_WRITES matches in its arguments become set ops with ok=false at the result: the write the agent attempted
     and the tool reported failed (an L7 denial never reaches the middleware, so this is the only trace of it). A
     successful committing call adds nothing here; the captured PUT carries the landed write.
-    The call failed only on a definite failure in its output, FATHOM_COMMIT_FAIL
-    (default an exit code other than 0 or an HTTP status other than 200/201) with no FATHOM_COMMIT_OK match; a result
+    The call failed only on a definite failure in its output, RIGHT_RUDDER_COMMIT_FAIL
+    (default an exit code other than 0 or an HTTP status other than 200/201) with no RIGHT_RUDDER_COMMIT_OK match; a result
     with neither (a command still running when the tool returned) is unknown and adds no op.
     When the committing command reads a file (cat PATH | ..., helper X < PATH) that this agent wrote
     earlier by a heredoc or a quoted echo/printf redirect in a call that ran, the last content written to that path is
     part of the attempted write.
-  * FATHOM_CLAIMS_FROM (optional regex): claims are read only from responses whose request's first message
+  * RIGHT_RUDDER_CLAIMS_FROM (optional regex): claims are read only from responses whose request's first message
     (system or user) matches it, e.g. the synthesis turn, so a worker drafting a new fact is not read as an
     assertion about committed state
 
 Endpoints are keyed on host:port plus path, never scheme (OpenShell 0.1.2 prints https:// on some response-stage
-lines for plain-http upstreams). Environment, same names as fathom-prime-agent: FATHOM_FACTS (key regex),
-FATHOM_KIND (default "fact"), FATHOM_WRITES (JSON list of {"regex", "kind"} with named groups key and value;
+lines for plain-http upstreams). Environment, same names as right-rudder-prime-agent: RIGHT_RUDDER_FACTS (key regex),
+RIGHT_RUDDER_KIND (default "fact"), RIGHT_RUDDER_WRITES (JSON list of {"regex", "kind"} with named groups key and value;
 JavaScript-style (?<name>...) groups are accepted).
 """
 from __future__ import annotations
@@ -65,13 +65,13 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Pattern, Tuple
 
 try:
-    from fathom_read.ops import Op
-    from fathom_read.adapters._tools import DEFAULT_MAP, op_from_tool
+    from right_rudder.ops import Op
+    from right_rudder.adapters._tools import DEFAULT_MAP, op_from_tool
 except ImportError:  # pragma: no cover
     from dataclasses import asdict, dataclass, field
 
     @dataclass
-    class Op:  # the fathom op contract, for use without fathom-read installed
+    class Op:  # the Right Rudder op contract, for use without right-rudder installed
         op: str
         kind: str
         key: str
@@ -109,7 +109,7 @@ def _js_groups(rx: str) -> str:
 
 
 def env_writes() -> List[Tuple[Pattern[str], str]]:
-    raw = os.environ.get("FATHOM_WRITES")
+    raw = (os.environ.get("RIGHT_RUDDER_WRITES") or os.environ.get("FATHOM_WRITES"))
     if not raw:
         return []
     return [(re.compile(_js_groups(w["regex"])), w.get("kind", "fact")) for w in json.loads(raw)]
@@ -118,7 +118,7 @@ def env_writes() -> List[Tuple[Pattern[str], str]]:
 # Placeholder words are not values, in writes and in claims alike: a line that gives a key as "none", "not stated",
 # "not reported", "n/a", ... says the value is absent and asserts nothing. One list for both.
 PLACEHOLDER_WORDS = ("none", "not", "n/a", "na", "unknown", "null", "unspecified", "missing")
-# for a FATHOM_WRITES value group: (?<value>...) preceded by this refuses a placeholder word
+# for a RIGHT_RUDDER_WRITES value group: (?<value>...) preceded by this refuses a placeholder word
 PLACEHOLDER_LOOKAHEAD = r"(?!(?i:" + "|".join(re.escape(w) for w in PLACEHOLDER_WORDS) + r")(?![A-Za-z0-9._-]))"
 
 
@@ -325,7 +325,7 @@ def _commit_reads(arguments: Any) -> Optional[str]:
 
 
 # A final message that reports a failure beside its facts (a non-2xx status on its own or after "HTTP", a non-zero exit,
-# a helper's failure line) is a failure report; its facts are not claims of committed state. FATHOM_FAILURE_REPORT
+# a helper's failure line) is a failure report; its facts are not claims of committed state. RIGHT_RUDDER_FAILURE_REPORT
 # overrides it (matched case-insensitively, ^ and $ per line).
 # a line that is only a file path (a write's block starts with it), e.g. runs/r/notes/agent-2/max_agents.md
 PATH_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?:path(?: written)?\s*:?\s*(?:\*\*)?\s*:?\s*)?[`*]*"
@@ -336,7 +336,7 @@ FAILURE_REPORT = (r"HTTP [45]\d\d\b|HTTP status[:*\s]*[`*]*[45]\d\d\b|^\s*[45]\d
 
 def _call_texts(captured) -> set:
     """Normalized texts of every assistant message that carries a tool call, from responses and request histories."""
-    from fathom_openshell.adapters import responses as RSP
+    from right_rudder_openshell.adapters import responses as RSP
     out = set()
     for req, resp in captured:
         path = (req.get("path") or "").rstrip("/")
@@ -373,14 +373,14 @@ class _Walker:
         self.calls: Dict[str, Tuple[str, List[Op]]] = {}     # tool_call_id -> (tool name, ops to mark ok)
         # tool_call_id -> {tool, call_ts, result_ts, result_ok, call_ops, result_ops} (op indices), for the join
         self.timing: Dict[str, Dict[str, Any]] = {}
-        cc = os.environ.get("FATHOM_COMMIT_CALLS")
+        cc = (os.environ.get("RIGHT_RUDDER_COMMIT_CALLS") or os.environ.get("FATHOM_COMMIT_CALLS"))
         self.commit_re = re.compile(cc) if cc else None
-        self.commit_ok_re = re.compile(os.environ.get("FATHOM_COMMIT_OK") or r"HTTP (200|201)\b")
+        self.commit_ok_re = re.compile((os.environ.get("RIGHT_RUDDER_COMMIT_OK") or os.environ.get("FATHOM_COMMIT_OK")) or r"HTTP (200|201)\b")
         # a committing call failed only on a definite failure in its output
-        self.commit_fail_re = re.compile(os.environ.get("FATHOM_COMMIT_FAIL")
+        self.commit_fail_re = re.compile((os.environ.get("RIGHT_RUDDER_COMMIT_FAIL") or os.environ.get("FATHOM_COMMIT_FAIL"))
                                          or r"Process exited with code [1-9]\d*\b|HTTP (?!200\b|201\b)\d{3}\b")
         self.call_texts = call_texts or set()   # normalized texts of assistant messages that carry tool calls
-        self.failure_re = re.compile(os.environ.get("FATHOM_FAILURE_REPORT") or FAILURE_REPORT, re.I | re.M)
+        self.failure_re = re.compile((os.environ.get("RIGHT_RUDDER_FAILURE_REPORT") or os.environ.get("FATHOM_FAILURE_REPORT")) or FAILURE_REPORT, re.I | re.M)
         self.files: Dict[str, str] = {}      # path -> last content this agent wrote to it (by a call that ran)
 
     def emit(self, ts: int, op: Op) -> Op:
@@ -506,13 +506,13 @@ def load_capture_detail(path: str, facts: Optional[str] = None, kind: Optional[s
                         writes: Optional[List[Tuple[Pattern[str], str]]] = None,
                         tool_map: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
     """{"timed": [(ts ns, op)], "calls": {tool_call_id: timing}, "pairs": [provider pair windows]}.
-    facts/kind/writes default to FATHOM_FACTS / FATHOM_KIND / FATHOM_WRITES."""
-    facts = facts if facts is not None else os.environ.get("FATHOM_FACTS")
-    kind = kind or os.environ.get("FATHOM_KIND") or "fact"
+    facts/kind/writes default to RIGHT_RUDDER_FACTS / RIGHT_RUDDER_KIND / RIGHT_RUDDER_WRITES."""
+    facts = facts if facts is not None else (os.environ.get("RIGHT_RUDDER_FACTS") or os.environ.get("FATHOM_FACTS"))
+    kind = kind or (os.environ.get("RIGHT_RUDDER_KIND") or os.environ.get("FATHOM_KIND")) or "fact"
     writes = writes if writes is not None else env_writes()
     w = _Walker(facts, kind, writes, tool_map if tool_map is not None else DEFAULT_MAP)
-    note_paths = re.compile(os.environ.get("FATHOM_NOTE_PATHS") or r"(^|/)notes/")
-    claims_from = os.environ.get("FATHOM_CLAIMS_FROM")
+    note_paths = re.compile((os.environ.get("RIGHT_RUDDER_NOTE_PATHS") or os.environ.get("FATHOM_NOTE_PATHS")) or r"(^|/)notes/")
+    claims_from = (os.environ.get("RIGHT_RUDDER_CLAIMS_FROM") or os.environ.get("FATHOM_CLAIMS_FROM"))
     claims_re = re.compile(claims_from) if claims_from else None
     pairs: List[Dict[str, Any]] = []
     captured = read_capture(path)
@@ -569,7 +569,7 @@ def load_capture_detail(path: str, facts: Optional[str] = None, kind: Optional[s
         wire_responses = (req.get("path") or "").rstrip("/").endswith("/responses")
         req_body = req.get("body") or {}
         if wire_responses and isinstance(req_body, dict):
-            from fathom_openshell.adapters import responses as RSP
+            from right_rudder_openshell.adapters import responses as RSP
             req_body = RSP.to_chat_request(req_body)
         if req.get("kind") == "request":
             if req.get("stub"):
@@ -587,7 +587,7 @@ def load_capture_detail(path: str, facts: Optional[str] = None, kind: Optional[s
             w.emit(t_resp, Op(GAP, "capture", rid, value=f"response:{resp.get('stub_reason')}", ok=False, source="stub"))
             continue
         if wire_responses:
-            from fathom_openshell.adapters import responses as RSP
+            from right_rudder_openshell.adapters import responses as RSP
             msg = RSP.response_message(resp)
         else:
             msg = _response_message(resp)

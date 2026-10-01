@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fathom-capture: an OpenShell supervisor middleware that records model traffic and never alters it.
+"""right-rudder-capture: an OpenShell supervisor middleware that records model traffic and never alters it.
 
 Implements SupervisorMiddleware (Describe, ValidateConfig, EvaluateHttpRequest) and
 HttpResponsePreReturn.Evaluate. Every request is allowed unchanged and every response body unit
@@ -11,7 +11,7 @@ Response bodies: WHOLE_BODY_BYTES for ordinary responses, STREAM_BYTES for text/
 offers only HEADERS_ONLY (encoded, partial, no-transform, bodyless or over the cap), or the body
 ends early, the line is a stub with a reason, never a silent gap.
 
-    python -m fathom_openshell.middleware --port 50051 --capture-dir captures
+    python -m right_rudder_openshell.middleware --port 50051 --capture-dir captures
 """
 import argparse
 import json
@@ -23,11 +23,11 @@ from concurrent import futures
 
 import grpc
 
-from fathom_openshell._proto import extension_pb2 as ext
-from fathom_openshell._proto import supervisor_middleware_pb2 as mw
-from fathom_openshell._proto import supervisor_middleware_pb2_grpc as mw_grpc
+from right_rudder_openshell._proto import extension_pb2 as ext
+from right_rudder_openshell._proto import supervisor_middleware_pb2 as mw
+from right_rudder_openshell._proto import supervisor_middleware_pb2_grpc as mw_grpc
 
-NAME = "fathom-capture"
+NAME = "right-rudder-capture"
 VERSION = "0.1.0"
 CONTRACT = "openshell.supervisor-middleware.contract"
 MAX_PAYLOAD = 4 * 1024 * 1024
@@ -160,7 +160,7 @@ class Middleware(mw_grpc.SupervisorMiddlewareServicer, mw_grpc.HttpResponsePreRe
         return mw.HttpRequestResult(decision=mw.DECISION_ALLOW)
 
     def EvaluateWebSocketSession(self, request_iterator, context):
-        context.abort(grpc.StatusCode.UNIMPLEMENTED, "fathom-capture binds no WebSocket operation")
+        context.abort(grpc.StatusCode.UNIMPLEMENTED, "right-rudder-capture binds no WebSocket operation")
 
     def Evaluate(self, request_iterator, context):
         """One response: preflight, then body units, then optional trailers and session_end."""

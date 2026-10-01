@@ -2,7 +2,7 @@
 
 Codex speaks only the Responses API (codex-rs/model-provider-info/src/lib.rs:104-129, wire_api = "responses"). Rather
 than a second op mapping, this module translates each captured Responses request and response into the chat shape
-chat_completions.py already reads, so both wire formats share one set of rules (FATHOM_* conventions, claims scope,
+chat_completions.py already reads, so both wire formats share one set of rules (RIGHT_RUDDER_* conventions, claims scope,
 gap handling, tool-call pairing). chat_completions.load_capture_detail dispatches here for any request whose path
 ends in /responses.
 

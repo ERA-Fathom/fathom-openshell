@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+- Fathom is now Right Rudder, by Embedded Risk Analytics. The package installs as `right-rudder-openshell`, imports as `right_rudder_openshell`, depends on `right-rudder` 0.7.0, and the middleware registers as `right-rudder-capture`. A policy that binds the middleware by module path or name needs the new names. The `FATHOM_` environment variables still read as fallbacks.
+
 ## 0.2.1 (2026-10-01)
 
 - The loader no longer breaks on a response whose body is a JSON list (a GitHub directory listing); the scan for messages

@@ -1,4 +1,4 @@
-"""A fathom-openshell ocsf_stream.jsonl (the WatchSandbox record) as delivery ops.
+"""A right-rudder-openshell ocsf_stream.jsonl (the WatchSandbox record) as delivery ops.
 
 load_stream(path) returns plain dicts, one per event, in stream order. They are the delivery record for the
 join to the model traffic and are not sent to the hosted read.
