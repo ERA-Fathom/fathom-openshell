@@ -142,6 +142,10 @@ class Claims:
         # one message states one current value per key: the last value stated for a key is the claim (a note that
         # records a correction lists the figure as first stated, then the revised one, and a reply restating the
         # note's lines must not read as asserting the corrected figure)
+        # "(not provided)"-style placeholders and a lone dash in a value position are placeholders too
+        text = re.sub(r"\(\s*(?:" + "|".join(re.escape(w) for w in PLACEHOLDER_WORDS) + r")\b[^()\n]*\)", "none", text, flags=re.I)
+        text = re.sub(r"(\|\s*)[-\u2013\u2014](\s*\|)", r"\1none\2", text)
+        text = re.sub(r"(:\s*)[-\u2013\u2014](\s*)$", r"\1none\2", text, flags=re.M)
         last: Dict[str, str] = {}
         blank = set()          # keys whose last statement is a placeholder: absent, so no claim and no bare reference
         for m in self.fact_re.finditer(text):
@@ -324,9 +328,10 @@ def _commit_reads(arguments: Any) -> Optional[str]:
 # a helper's failure line) is a failure report; its facts are not claims of committed state. FATHOM_FAILURE_REPORT
 # overrides it (matched case-insensitively, ^ and $ per line).
 # a line that is only a file path (a write's block starts with it), e.g. runs/r/notes/agent-2/max_agents.md
-PATH_LINE = re.compile(r"^\s*[\w.-]*(?:/[\w.-]+)+\.\w{1,6}\s*:?\s*$")
+PATH_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?:path(?: written)?\s*:?\s*(?:\*\*)?\s*:?\s*)?[`*]*"
+                       r"[\w.-]*(?:/[\w.-]+)+\.\w{1,6}[`*]*\s*:?\s*$", re.I)   # bare, or "- **Path:** `p`"
 
-FAILURE_REPORT = (r"HTTP [45]\d\d\b|^\s*[45]\d\d\s*$|exit(?:ed with)? code [1-9]|\bfailed\b|\bdenied\b|\bnot sent\b")
+FAILURE_REPORT = (r"HTTP [45]\d\d\b|HTTP status[:*\s]*[`*]*[45]\d\d\b|^\s*[45]\d\d\s*$|exit(?:ed with)? code [1-9]|\bfailed\b|\bdenied\b|\bnot sent\b")
 
 
 def _call_texts(captured) -> set:
@@ -441,6 +446,19 @@ class _Walker:
         lines = text.splitlines()
         if not any(PATH_LINE.match(ln) for ln in lines):
             return ""
+        # a key-only header ("**max_agents:**") directly above a path line belongs to that path's block
+        key_re = self.claims.key_re
+        nxt = None
+        drop = set()
+        for n in range(len(lines) - 1, -1, -1):
+            ln = lines[n]
+            if not ln.strip():
+                continue
+            if nxt is not None and PATH_LINE.match(lines[nxt]) and key_re is not None and \
+                    key_re.fullmatch(ln.strip().strip("*#`-: ").strip()):
+                drop.add(n)
+            nxt = n
+        lines = [ln for n, ln in enumerate(lines) if n not in drop]
         keep, failed = [], False
         for ln in lines:
             if PATH_LINE.match(ln):

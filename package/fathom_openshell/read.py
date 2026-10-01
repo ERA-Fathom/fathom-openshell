@@ -87,7 +87,9 @@ def join_request(dirs, tool_map, facts=None, kind=None, names=None):
                        "response_ts": rel(p["response_ts"])} for p in detail["pairs"]],
             "calls": [{"tool_call_id": cid, "tool": c.get("tool"), "call_ts": rel(c.get("call_ts")),
                        "result_ts": rel(c.get("result_ts")),
-                       "result_steps": [step_of[(k, i)] for i in c.get("result_ops", []) if (k, i) in step_of]}
+                       "result_steps": [step_of[(k, i)] for i in c.get("result_ops", []) if (k, i) in step_of],
+                       # the call's own arguments, so the service can align a call to the deliveries for the path it names
+                       "args": (c.get("call_text") or "")[len(c.get("tool") or ""):].strip()[:4000]}
                       for cid, c in detail["calls"].items()],
             "deliveries": [{f: (rel(x.get(f)) if f == "event_time_ns" else x.get(f)) for f in
                             ("cursor", "event", "decision", "method", "host", "port", "path", "endpoint", "event_time_ns", "reasons")}
